@@ -10,8 +10,16 @@
 </head>
 <body>
 
-    <!-- Left Sidebar (Editor tools) -->
+    <!-- Left Sidebar (now includes variant list at top) -->
     <div id="sidebar">
+        <!-- Variant Management moved here -->
+        <div class="section-title">My Variants</div>
+        <div id="variant-list" style="max-height:150px; overflow-y:auto; margin-bottom:15px;"></div>
+        <div class="control-group" style="margin-bottom:15px;">
+            <input type="text" id="variant-name" placeholder="Variant name" value="My Variant">
+            <button class="btn-action" onclick="saveVariant()" style="margin-top:5px;">💾 SAVE VARIANT</button>
+        </div>
+
         <div class="section-title">Color</div>
         <div class="color-grid">
             <div class="color-btn active" id="btn-white" onclick="selectColor('white')">WHITE</div>
@@ -25,12 +33,10 @@
         <button class="btn-action btn-secondary" id="btn-eraser" onclick="selectTool('eraser')" style="margin-top:20px">ERASER</button>
     </div>
 
-    <!-- Main Area: shows either editor board or game board -->
+    <!-- Main Area -->
     <div id="main-viewport">
         <div id="board-container">
-            <!-- Editor Board -->
             <div id="chess-board" class="active-board"></div>
-            <!-- Game Board (hidden by default) -->
             <div id="game-board" class="hidden"></div>
         </div>
     </div>
@@ -49,15 +55,6 @@
 
         <hr>
 
-        <div class="section-title">Variant Management</div>
-        <div class="control-group">
-            <input type="text" id="variant-name" placeholder="Variant name" value="My Variant">
-        </div>
-        <button class="btn-action" onclick="saveVariant()">💾 SAVE VARIANT</button>
-        <div id="variant-list" style="margin-top:10px; max-height:150px; overflow-y:auto;"></div>
-
-        <hr>
-
         <div class="section-title">Play Online</div>
         <button class="btn-action" onclick="createRoom()">🎮 CREATE ROOM</button>
         <div class="control-group" style="display:flex; gap:5px; margin-top:10px;">
@@ -65,10 +62,6 @@
             <button class="btn-action" onclick="joinRoom()" style="margin-top:0;">JOIN</button>
         </div>
         <div id="room-info" style="font-size:0.8rem; color:#aaa;"></div>
-
-        <hr>
-
-        <button class="btn-action" onclick="saveToFirebase()">DEPLOY VARIANT (old)</button>
     </div>
 
     <script src="script.js"></script>
