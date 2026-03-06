@@ -1,0 +1,45 @@
+:root {
+    --bg-dark: #21201d;
+    --panel-bg: #2b2926;
+    --accent: #81b64c;
+    --sq-light: #ebecd0;
+    --sq-dark: #779556;
+}
+
+body {
+    margin: 0; padding: 0;
+    background-color: var(--bg-dark);
+    color: #eee; font-family: sans-serif;
+    display: flex; height: 100vh; overflow: hidden;
+}
+
+#sidebar, #settings {
+    width: 260px; background: var(--panel-bg);
+    padding: 15px; border: 1px solid #444; display: flex; flex-direction: column;
+}
+
+#main-viewport { flex-grow: 1; display: flex; align-items: center; justify-content: center; }
+
+#chess-board { display: grid; border: 5px solid #111; background: #111; }
+
+.square {
+    width: 45px; height: 45px; display: flex; align-items: center;
+    justify-content: center; font-size: 2rem; cursor: crosshair;
+}
+
+.sq-light { background: var(--sq-light); }
+.sq-dark { background: var(--sq-dark); }
+.sq-dead { background: transparent !important; pointer-events: none; }
+
+.section-title { font-size: 0.8rem; color: #999; margin-bottom: 10px; text-transform: uppercase; }
+
+.color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 20px; }
+.color-btn { padding: 10px; background: #333; border: 2px solid #444; cursor: pointer; text-align: center; font-size: 0.7rem; }
+.color-btn.active { border-color: var(--accent); }
+
+.piece-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.piece-tool { background: #383531; border: 1px solid #444; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.5rem; }
+.piece-tool.active { border: 2px solid var(--accent); }
+
+.btn-action { width: 100%; padding: 12px; border: none; background: var(--accent); color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
+.btn-secondary { background: #444; }
