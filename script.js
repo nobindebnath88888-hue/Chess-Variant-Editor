@@ -10,6 +10,7 @@ const firebaseConfig = {
   };
 
 
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
@@ -17,31 +18,28 @@ const db = firebase.database();
 const PIECES = {
     'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙'
 };
+const BLOCK_TYPE = 'BLK';
+const BLOCK_SYMBOL = '⬛'; // black large square
+const BLOCK_COLOR = '#666';
 
 // ==================== GLOBAL STATE ====================
 let state = {
-    // Editor state
     size: 14,
     selectedPiece: 'P',
     selectedColor: 'white',
-    boardData: {},        // { "x,y": { type, color } }
+    boardData: {},        // { "x,y": { type, color } }  (type can be piece key or BLOCK_TYPE)
     teamMode: false,
-
-    // User identity (simple device ID for saving variants)
     userId: '',
-
-    // Room / game state
-    inGame: false,        // whether we are in play mode
+    inGame: false,
     roomId: null,
-    playerColor: null,    // 'white' or 'black' (for 2-player; we can extend later)
-    gameBoardData: {},    // copy of boardData when game started
+    playerColor: null,
+    gameBoardData: {},
     currentTurn: 'white',
-    selectedSquare: null, // for move selection
+    selectedSquare: null,
 };
 
 // ==================== INITIALIZATION ====================
 function init() {
-    // Generate or retrieve a user ID (stored in localStorage)
     let uid = localStorage.getItem('chessVariantUserId');
     if (!uid) {
         uid = 'user_' + Math.random().toString(36).substr(2, 9);
@@ -49,7 +47,6 @@ function init() {
     }
     state.userId = uid;
 
-    // Populate piece tools
     const container = document.getElementById('piece-tools');
     Object.keys(PIECES).forEach(key => {
         const div = document.createElement('div');
@@ -60,13 +57,8 @@ function init() {
         container.appendChild(div);
     });
 
-    // Load user's variants and display list
     loadVariantList();
-
-    // Render editor board
     renderBoard();
-
-    // Set up real-time listener for game if in a room (none initially)
 }
 
 // ==================== EDITOR FUNCTIONS ====================
@@ -84,8 +76,15 @@ function renderBoard() {
             if (!dead) {
                 const data = state.boardData[`${x},${y}`];
                 if (data) {
-                    const symbol = PIECES[data.type];
-                    sq.innerHTML = `<span style="color: ${getColor(data.color)}">${symbol}</span>`;
+                    let symbol, color;
+                    if (data.type === BLOCK_TYPE) {
+                        symbol = BLOCK_SYMBOL;
+                        color = BLOCK_COLOR;
+                    } else {
+                        symbol = PIECES[data.type];
+                        color = getColor(data.color);
+                    }
+                    sq.innerHTML = `<span style="color: ${color}">${symbol}</span>`;
                 }
                 sq.onclick = () => paintPiece(x, y);
             }
@@ -101,10 +100,19 @@ function isDeadZone(x, y) {
 }
 
 function paintPiece(x, y) {
+    const key = `${x},${y}`;
     if (state.selectedPiece === 'eraser') {
-        delete state.boardData[`${x},${y}`];
+        delete state.boardData[key];
+    } else if (state.selectedPiece === 'block') {
+        // Toggle block: if block exists, remove it; else set block (and remove any piece)
+        if (state.boardData[key] && state.boardData[key].type === BLOCK_TYPE) {
+            delete state.boardData[key];
+        } else {
+            state.boardData[key] = { type: BLOCK_TYPE };
+        }
     } else {
-        state.boardData[`${x},${y}`] = { type: state.selectedPiece, color: state.selectedColor };
+        // Place a piece (overwrites whatever was there)
+        state.boardData[key] = { type: state.selectedPiece, color: state.selectedColor };
     }
     renderBoard();
 }
@@ -113,10 +121,14 @@ function selectTool(type) {
     state.selectedPiece = type;
     document.querySelectorAll('.piece-tool').forEach(t => t.classList.remove('active'));
     const eraserBtn = document.getElementById('btn-eraser');
+    const blockBtn = document.getElementById('btn-block');
     if (eraserBtn) eraserBtn.classList.remove('btn-eraser-active');
+    if (blockBtn) blockBtn.classList.remove('btn-block-active');
 
     if (type === 'eraser') {
         if (eraserBtn) eraserBtn.classList.add('btn-eraser-active');
+    } else if (type === 'block') {
+        if (blockBtn) blockBtn.classList.add('btn-block-active');
     } else {
         const tool = document.getElementById(`tool-${type}`);
         if (tool) tool.classList.add('active');
@@ -142,7 +154,6 @@ function changeSize(val) {
 
 function toggleTeamMode() {
     state.teamMode = document.getElementById('team-mode').checked;
-    console.log('Team mode:', state.teamMode);
 }
 
 function clearBoard() {
@@ -162,11 +173,10 @@ function saveVariant() {
         timestamp: Date.now()
     };
 
-    // Push to Firebase under /variants
     const variantRef = db.ref('variants').push();
     variantRef.set(variantData).then(() => {
         alert('Variant saved!');
-        loadVariantList(); // refresh list
+        loadVariantList();
     }).catch(err => alert('Error: ' + err.message));
 }
 
@@ -174,7 +184,6 @@ function loadVariantList() {
     const listDiv = document.getElementById('variant-list');
     listDiv.innerHTML = 'Loading...';
 
-    // Query variants created by this user
     db.ref('variants').orderByChild('userId').equalTo(state.userId).once('value', snapshot => {
         listDiv.innerHTML = '';
         const variants = [];
@@ -187,7 +196,6 @@ function loadVariantList() {
             return;
         }
 
-        // Sort by newest first
         variants.sort((a,b) => b.timestamp - a.timestamp);
 
         variants.forEach(v => {
@@ -213,7 +221,6 @@ function loadVariant(id) {
         state.boardData = v.boardData || {};
         state.teamMode = v.teamMode || false;
 
-        // Update UI
         document.getElementById('team-mode').checked = state.teamMode;
         document.getElementById('dim-label').innerText = `${state.size} x ${state.size}`;
         document.getElementById('variant-name').value = v.name;
@@ -237,7 +244,6 @@ function createRoom() {
         return;
     }
 
-    // Generate a 6-character room code
     const roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
     const roomRef = db.ref('rooms/' + roomId);
 
@@ -248,11 +254,11 @@ function createRoom() {
             teamMode: state.teamMode
         },
         players: {
-            white: state.userId,  // creator is white
+            white: state.userId,
             black: null
         },
         gameState: {
-            board: state.boardData,   // initial board (copy)
+            board: state.boardData,
             turn: 'white',
             lastMove: null
         },
@@ -261,13 +267,10 @@ function createRoom() {
         state.roomId = roomId;
         state.playerColor = 'white';
         state.inGame = true;
-        state.gameBoardData = JSON.parse(JSON.stringify(state.boardData)); // deep copy
+        state.gameBoardData = JSON.parse(JSON.stringify(state.boardData));
         state.currentTurn = 'white';
 
-        // Switch to game board view
         enterGameMode(roomId);
-
-        // Listen for changes
         listenToRoom(roomId);
 
         document.getElementById('room-info').innerHTML = `
@@ -294,7 +297,6 @@ function joinRoom() {
             return;
         }
 
-        // Join as black
         roomRef.child('players/black').set(state.userId).then(() => {
             state.roomId = roomId;
             state.playerColor = 'black';
@@ -311,15 +313,10 @@ function joinRoom() {
 }
 
 function enterGameMode(roomId) {
-    // Hide editor board, show game board
     document.getElementById('chess-board').classList.add('hidden');
     document.getElementById('game-board').classList.remove('hidden');
-    document.getElementById('game-board').style.pointerEvents = 'auto'; // enable clicks
-
-    // Render game board
+    document.getElementById('game-board').style.pointerEvents = 'auto';
     renderGameBoard();
-
-    // Disable editor controls (optional)
 }
 
 function exitGameMode() {
@@ -327,7 +324,6 @@ function exitGameMode() {
     document.getElementById('game-board').classList.add('hidden');
     document.getElementById('game-board').style.pointerEvents = 'none';
 
-    // Remove Firebase listener
     if (state.roomId) {
         db.ref('rooms/' + state.roomId).off();
     }
@@ -355,18 +351,23 @@ function renderGameBoard() {
             if (!dead) {
                 const data = state.gameBoardData[`${x},${y}`];
                 if (data) {
-                    const symbol = PIECES[data.type];
-                    sq.innerHTML = `<span style="color: ${getColor(data.color)}">${symbol}</span>`;
+                    let symbol, color;
+                    if (data.type === BLOCK_TYPE) {
+                        symbol = BLOCK_SYMBOL;
+                        color = BLOCK_COLOR;
+                    } else {
+                        symbol = PIECES[data.type];
+                        color = getColor(data.color);
+                    }
+                    sq.innerHTML = `<span style="color: ${color}">${symbol}</span>`;
                 }
 
-                // Add click handler for moves
                 sq.onclick = () => handleGameSquareClick(x, y);
             }
             board.appendChild(sq);
         }
     }
 
-    // Add turn indicator
     let indicator = document.getElementById('turn-indicator');
     if (!indicator) {
         indicator = document.createElement('div');
@@ -384,14 +385,14 @@ function renderGameBoard() {
 
 function handleGameSquareClick(x, y) {
     if (!state.inGame) return;
-    if (state.playerColor !== state.currentTurn) return; // not your turn
+    if (state.playerColor !== state.currentTurn) return;
 
     const squareKey = `${x},${y}`;
     const piece = state.gameBoardData[squareKey];
 
     if (state.selectedSquare === null) {
-        // Select a piece if it belongs to current player
-        if (piece && piece.color === state.playerColor) {
+        // Select a piece if it belongs to current player and is not a block
+        if (piece && piece.color === state.playerColor && piece.type !== BLOCK_TYPE) {
             state.selectedSquare = squareKey;
             highlightSquare(x, y, true);
         }
@@ -400,29 +401,34 @@ function handleGameSquareClick(x, y) {
         const [fromX, fromY] = state.selectedSquare.split(',').map(Number);
         const fromPiece = state.gameBoardData[state.selectedSquare];
 
-        // Basic move: just move piece (no validation)
+        // Basic move: destination must be empty or opponent piece (capture) and NOT a block
+        const destPiece = state.gameBoardData[squareKey];
+        if (destPiece && destPiece.type === BLOCK_TYPE) {
+            // Cannot move onto a block
+            clearHighlight();
+            state.selectedSquare = null;
+            return;
+        }
+
         if (fromPiece) {
-            // Remove old piece, place at new location
+            // Remove old piece, place at new location (capturing any opponent piece)
             delete state.gameBoardData[state.selectedSquare];
-            state.gameBoardData[squareKey] = { ...fromPiece }; // copy
+            state.gameBoardData[squareKey] = { ...fromPiece };
 
             // Update turn
             state.currentTurn = state.currentTurn === 'white' ? 'black' : 'white';
 
-            // Clear selection
             clearHighlight();
             state.selectedSquare = null;
 
-            // Update Firebase room
+            // Update Firebase
             const updates = {};
             updates[`rooms/${state.roomId}/gameState/board`] = state.gameBoardData;
             updates[`rooms/${state.roomId}/gameState/turn`] = state.currentTurn;
             db.ref().update(updates);
 
-            // Re-render locally (though Firebase listener will also trigger)
             renderGameBoard();
         } else {
-            // Invalid target, clear selection
             clearHighlight();
             state.selectedSquare = null;
         }
@@ -430,9 +436,7 @@ function handleGameSquareClick(x, y) {
 }
 
 function highlightSquare(x, y, isSelected) {
-    // Simple highlight by changing background (could be more sophisticated)
-    const squares = document.querySelectorAll('#game-board .square');
-    squares.forEach(sq => {
+    document.querySelectorAll('#game-board .square').forEach(sq => {
         if (sq.dataset.x == x && sq.dataset.y == y) {
             sq.style.outline = isSelected ? '3px solid var(--accent)' : '';
         }
@@ -450,28 +454,20 @@ function listenToRoom(roomId) {
     roomRef.on('value', snapshot => {
         const room = snapshot.val();
         if (!room) {
-            // Room deleted? Exit game mode
             alert('Room closed');
             exitGameMode();
             return;
         }
 
-        // Update local game state
         state.gameBoardData = room.gameState.board || {};
         state.currentTurn = room.gameState.turn || 'white';
         renderGameBoard();
-
-        // If both players present, maybe show a message
-        if (room.players.white && room.players.black) {
-            // Game can start
-        }
     });
 }
 
-// ==================== LEGACY (keep for now) ====================
+// ==================== LEGACY ====================
 function saveToFirebase() {
     alert('Use SAVE VARIANT instead');
 }
 
-// Start the app
 init();
