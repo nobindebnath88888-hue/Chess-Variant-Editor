@@ -10,42 +10,66 @@ const firebaseConfig = {
   };
 
 
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Map piece letters to Font Awesome icon classes
+// ==================== CONSTANTS ====================
 const PIECES = {
-    'K': 'fa-chess-king',
-    'Q': 'fa-chess-queen',
-    'R': 'fa-chess-rook',
-    'B': 'fa-chess-bishop',
-    'N': 'fa-chess-knight',
-    'P': 'fa-chess-pawn'
+    'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙'
 };
 
+// ==================== GLOBAL STATE ====================
 let state = {
+    // Editor state
     size: 14,
     selectedPiece: 'P',
     selectedColor: 'white',
-    boardData: {},
-    teamMode: false
+    boardData: {},        // { "x,y": { type, color } }
+    teamMode: false,
+
+    // User identity (simple device ID for saving variants)
+    userId: '',
+
+    // Room / game state
+    inGame: false,        // whether we are in play mode
+    roomId: null,
+    playerColor: null,    // 'white' or 'black' (for 2-player; we can extend later)
+    gameBoardData: {},    // copy of boardData when game started
+    currentTurn: 'white',
+    selectedSquare: null, // for move selection
 };
 
+// ==================== INITIALIZATION ====================
 function init() {
+    // Generate or retrieve a user ID (stored in localStorage)
+    let uid = localStorage.getItem('chessVariantUserId');
+    if (!uid) {
+        uid = 'user_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('chessVariantUserId', uid);
+    }
+    state.userId = uid;
+
+    // Populate piece tools
     const container = document.getElementById('piece-tools');
     Object.keys(PIECES).forEach(key => {
         const div = document.createElement('div');
         div.className = `piece-tool ${key === 'P' ? 'active' : ''}`;
         div.id = `tool-${key}`;
-        // Use Font Awesome icon
-        div.innerHTML = `<i class="fas ${PIECES[key]}"></i>`;
+        div.textContent = PIECES[key];
         div.onclick = () => selectTool(key);
         container.appendChild(div);
     });
+
+    // Load user's variants and display list
+    loadVariantList();
+
+    // Render editor board
     renderBoard();
+
+    // Set up real-time listener for game if in a room (none initially)
 }
 
+// ==================== EDITOR FUNCTIONS ====================
 function renderBoard() {
     const board = document.getElementById('chess-board');
     board.innerHTML = '';
@@ -60,8 +84,8 @@ function renderBoard() {
             if (!dead) {
                 const data = state.boardData[`${x},${y}`];
                 if (data) {
-                    // Render Font Awesome icon with color
-                    sq.innerHTML = `<i class="fas ${PIECES[data.type]}" style="color: ${getColor(data.color)}"></i>`;
+                    const symbol = PIECES[data.type];
+                    sq.innerHTML = `<span style="color: ${getColor(data.color)}">${symbol}</span>`;
                 }
                 sq.onclick = () => paintPiece(x, y);
             }
@@ -87,7 +111,6 @@ function paintPiece(x, y) {
 
 function selectTool(type) {
     state.selectedPiece = type;
-
     document.querySelectorAll('.piece-tool').forEach(t => t.classList.remove('active'));
     const eraserBtn = document.getElementById('btn-eraser');
     if (eraserBtn) eraserBtn.classList.remove('btn-eraser-active');
@@ -127,18 +150,328 @@ function clearBoard() {
     renderBoard();
 }
 
-function saveToFirebase() {
-    const variantRef = db.ref('variants').push();
-    variantRef.set({
-        grid: state.boardData,
+// ==================== VARIANT MANAGEMENT ====================
+function saveVariant() {
+    const name = document.getElementById('variant-name').value.trim() || 'Unnamed';
+    const variantData = {
+        name: name,
         size: state.size,
+        boardData: state.boardData,
         teamMode: state.teamMode,
+        userId: state.userId,
         timestamp: Date.now()
-    }).then(() => {
-        alert("Variant deployed! ID: " + variantRef.key);
-    }).catch(error => {
-        alert("Error: " + error.message);
+    };
+
+    // Push to Firebase under /variants
+    const variantRef = db.ref('variants').push();
+    variantRef.set(variantData).then(() => {
+        alert('Variant saved!');
+        loadVariantList(); // refresh list
+    }).catch(err => alert('Error: ' + err.message));
+}
+
+function loadVariantList() {
+    const listDiv = document.getElementById('variant-list');
+    listDiv.innerHTML = 'Loading...';
+
+    // Query variants created by this user
+    db.ref('variants').orderByChild('userId').equalTo(state.userId).once('value', snapshot => {
+        listDiv.innerHTML = '';
+        const variants = [];
+        snapshot.forEach(child => {
+            variants.push({ id: child.key, ...child.val() });
+        });
+
+        if (variants.length === 0) {
+            listDiv.innerHTML = '<div style="padding:5px;">No saved variants</div>';
+            return;
+        }
+
+        // Sort by newest first
+        variants.sort((a,b) => b.timestamp - a.timestamp);
+
+        variants.forEach(v => {
+            const item = document.createElement('div');
+            item.className = 'variant-item';
+            item.innerHTML = `
+                <span>${v.name}</span>
+                <div>
+                    <button onclick="loadVariant('${v.id}')" title="Load">📂</button>
+                    <button onclick="deleteVariant('${v.id}')" title="Delete">🗑️</button>
+                </div>
+            `;
+            listDiv.appendChild(item);
+        });
     });
 }
 
+function loadVariant(id) {
+    db.ref('variants/' + id).once('value', snapshot => {
+        const v = snapshot.val();
+        if (!v) return;
+        state.size = v.size;
+        state.boardData = v.boardData || {};
+        state.teamMode = v.teamMode || false;
+
+        // Update UI
+        document.getElementById('team-mode').checked = state.teamMode;
+        document.getElementById('dim-label').innerText = `${state.size} x ${state.size}`;
+        document.getElementById('variant-name').value = v.name;
+
+        renderBoard();
+    });
+}
+
+function deleteVariant(id) {
+    if (confirm('Delete this variant?')) {
+        db.ref('variants/' + id).remove().then(() => {
+            loadVariantList();
+        });
+    }
+}
+
+// ==================== ROOM / GAMEPLAY ====================
+function createRoom() {
+    if (Object.keys(state.boardData).length === 0) {
+        alert('Please design a variant first!');
+        return;
+    }
+
+    // Generate a 6-character room code
+    const roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
+    const roomRef = db.ref('rooms/' + roomId);
+
+    roomRef.set({
+        variant: {
+            size: state.size,
+            boardData: state.boardData,
+            teamMode: state.teamMode
+        },
+        players: {
+            white: state.userId,  // creator is white
+            black: null
+        },
+        gameState: {
+            board: state.boardData,   // initial board (copy)
+            turn: 'white',
+            lastMove: null
+        },
+        createdAt: Date.now()
+    }).then(() => {
+        state.roomId = roomId;
+        state.playerColor = 'white';
+        state.inGame = true;
+        state.gameBoardData = JSON.parse(JSON.stringify(state.boardData)); // deep copy
+        state.currentTurn = 'white';
+
+        // Switch to game board view
+        enterGameMode(roomId);
+
+        // Listen for changes
+        listenToRoom(roomId);
+
+        document.getElementById('room-info').innerHTML = `
+            Room created!<br>
+            <strong>${roomId}</strong><br>
+            Share this code with a friend.
+        `;
+    });
+}
+
+function joinRoom() {
+    const roomId = document.getElementById('room-code').value.trim().toUpperCase();
+    if (!roomId) return;
+
+    const roomRef = db.ref('rooms/' + roomId);
+    roomRef.once('value', snapshot => {
+        const room = snapshot.val();
+        if (!room) {
+            alert('Room not found');
+            return;
+        }
+        if (room.players.black) {
+            alert('Room is full');
+            return;
+        }
+
+        // Join as black
+        roomRef.child('players/black').set(state.userId).then(() => {
+            state.roomId = roomId;
+            state.playerColor = 'black';
+            state.inGame = true;
+            state.gameBoardData = JSON.parse(JSON.stringify(room.gameState.board));
+            state.currentTurn = room.gameState.turn;
+
+            enterGameMode(roomId);
+            listenToRoom(roomId);
+
+            document.getElementById('room-info').innerHTML = `Joined room ${roomId} as Black.`;
+        });
+    });
+}
+
+function enterGameMode(roomId) {
+    // Hide editor board, show game board
+    document.getElementById('chess-board').classList.add('hidden');
+    document.getElementById('game-board').classList.remove('hidden');
+    document.getElementById('game-board').style.pointerEvents = 'auto'; // enable clicks
+
+    // Render game board
+    renderGameBoard();
+
+    // Disable editor controls (optional)
+}
+
+function exitGameMode() {
+    document.getElementById('chess-board').classList.remove('hidden');
+    document.getElementById('game-board').classList.add('hidden');
+    document.getElementById('game-board').style.pointerEvents = 'none';
+
+    // Remove Firebase listener
+    if (state.roomId) {
+        db.ref('rooms/' + state.roomId).off();
+    }
+
+    state.inGame = false;
+    state.roomId = null;
+    state.playerColor = null;
+    state.selectedSquare = null;
+    document.getElementById('room-info').innerHTML = '';
+}
+
+function renderGameBoard() {
+    const board = document.getElementById('game-board');
+    board.innerHTML = '';
+    board.style.gridTemplateColumns = `repeat(${state.size}, 45px)`;
+
+    for (let y = state.size - 1; y >= 0; y--) {
+        for (let x = 0; x < state.size; x++) {
+            const sq = document.createElement('div');
+            const dead = isDeadZone(x, y);
+            sq.className = `square ${(x + y) % 2 === 0 ? 'sq-dark' : 'sq-light'} ${dead ? 'sq-dead' : ''}`;
+            sq.dataset.x = x;
+            sq.dataset.y = y;
+            
+            if (!dead) {
+                const data = state.gameBoardData[`${x},${y}`];
+                if (data) {
+                    const symbol = PIECES[data.type];
+                    sq.innerHTML = `<span style="color: ${getColor(data.color)}">${symbol}</span>`;
+                }
+
+                // Add click handler for moves
+                sq.onclick = () => handleGameSquareClick(x, y);
+            }
+            board.appendChild(sq);
+        }
+    }
+
+    // Add turn indicator
+    let indicator = document.getElementById('turn-indicator');
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'turn-indicator';
+        indicator.className = 'turn-indicator';
+        document.getElementById('board-container').appendChild(indicator);
+    }
+    indicator.textContent = `Turn: ${state.currentTurn === 'white' ? 'White' : 'Black'}`;
+    if (state.playerColor === state.currentTurn) {
+        indicator.innerHTML += ' (Your turn)';
+    } else {
+        indicator.innerHTML += ' (Opponent\'s turn)';
+    }
+}
+
+function handleGameSquareClick(x, y) {
+    if (!state.inGame) return;
+    if (state.playerColor !== state.currentTurn) return; // not your turn
+
+    const squareKey = `${x},${y}`;
+    const piece = state.gameBoardData[squareKey];
+
+    if (state.selectedSquare === null) {
+        // Select a piece if it belongs to current player
+        if (piece && piece.color === state.playerColor) {
+            state.selectedSquare = squareKey;
+            highlightSquare(x, y, true);
+        }
+    } else {
+        // Attempt to move from selectedSquare to (x,y)
+        const [fromX, fromY] = state.selectedSquare.split(',').map(Number);
+        const fromPiece = state.gameBoardData[state.selectedSquare];
+
+        // Basic move: just move piece (no validation)
+        if (fromPiece) {
+            // Remove old piece, place at new location
+            delete state.gameBoardData[state.selectedSquare];
+            state.gameBoardData[squareKey] = { ...fromPiece }; // copy
+
+            // Update turn
+            state.currentTurn = state.currentTurn === 'white' ? 'black' : 'white';
+
+            // Clear selection
+            clearHighlight();
+            state.selectedSquare = null;
+
+            // Update Firebase room
+            const updates = {};
+            updates[`rooms/${state.roomId}/gameState/board`] = state.gameBoardData;
+            updates[`rooms/${state.roomId}/gameState/turn`] = state.currentTurn;
+            db.ref().update(updates);
+
+            // Re-render locally (though Firebase listener will also trigger)
+            renderGameBoard();
+        } else {
+            // Invalid target, clear selection
+            clearHighlight();
+            state.selectedSquare = null;
+        }
+    }
+}
+
+function highlightSquare(x, y, isSelected) {
+    // Simple highlight by changing background (could be more sophisticated)
+    const squares = document.querySelectorAll('#game-board .square');
+    squares.forEach(sq => {
+        if (sq.dataset.x == x && sq.dataset.y == y) {
+            sq.style.outline = isSelected ? '3px solid var(--accent)' : '';
+        }
+    });
+}
+
+function clearHighlight() {
+    document.querySelectorAll('#game-board .square').forEach(sq => {
+        sq.style.outline = '';
+    });
+}
+
+function listenToRoom(roomId) {
+    const roomRef = db.ref('rooms/' + roomId);
+    roomRef.on('value', snapshot => {
+        const room = snapshot.val();
+        if (!room) {
+            // Room deleted? Exit game mode
+            alert('Room closed');
+            exitGameMode();
+            return;
+        }
+
+        // Update local game state
+        state.gameBoardData = room.gameState.board || {};
+        state.currentTurn = room.gameState.turn || 'white';
+        renderGameBoard();
+
+        // If both players present, maybe show a message
+        if (room.players.white && room.players.black) {
+            // Game can start
+        }
+    });
+}
+
+// ==================== LEGACY (keep for now) ====================
+function saveToFirebase() {
+    alert('Use SAVE VARIANT instead');
+}
+
+// Start the app
 init();
