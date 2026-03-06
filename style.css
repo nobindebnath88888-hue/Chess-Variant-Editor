@@ -202,7 +202,7 @@ body {
     box-sizing: border-box;
 }
 
-.btn-eraser-active {
+.btn-eraser-active, .btn-block-active {
     background: var(--accent) !important;
     color: white !important;
     border: 2px solid white;
