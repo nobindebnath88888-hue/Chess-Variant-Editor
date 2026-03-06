@@ -1,13 +1,13 @@
 // Paste your Firebase Config here from the Firebase Console
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    databaseURL: "YOUR_DATABASE_URL",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-};
+    apiKey: "AIzaSyBxHSDUiSWNf-0wiLMUHTYVYd-HhyjjZZw",
+    authDomain: "chess-variant-editor.firebaseapp.com",
+    projectId: "chess-variant-editor",
+    storageBucket: "chess-variant-editor.firebasestorage.app",
+    messagingSenderId: "548297225938",
+    appId: "1:548297225938:web:91af0f0aeaea3358069f0b",
+    measurementId: "G-2Z9P9KZQWM"
+  };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
