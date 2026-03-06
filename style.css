@@ -1,12 +1,12 @@
 :root {
-    --bg-dark: #1e1e1e;
-    --panel-bg: #2c2c2c;
-    --accent: #3498db;
-    --sq-light: #ecf0f1;
-    --sq-dark: #2c3e50;
-    --border-dark: #000000;
-    --text-light: #eeeeee;
-    --text-muted: #aaaaaa;
+    --bg-dark: #3e2e1f;           /* dark wood background */
+    --panel-bg: #5d4a36;           /* medium wood for panels */
+    --accent: #b85e0e;             /* warm orange/brown accent */
+    --sq-light: #f0d9b5;           /* light wood */
+    --sq-dark: #b58863;            /* dark wood */
+    --border-dark: #2c1e12;        /* very dark wood */
+    --text-light: #f0e6d2;
+    --text-muted: #c0a88a;
 }
 
 body {
@@ -24,7 +24,7 @@ body {
     width: 260px;
     background: var(--panel-bg);
     padding: 15px;
-    border: 1px solid #444;
+    border: 1px solid #6b4f35;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
@@ -35,34 +35,39 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    background-color: var(--bg-dark); /* matches body */
 }
 
 #board-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: relative;
+    width: min-content;
+    height: min-content;
 }
 
 #chess-board, #game-board {
     display: grid;
     border: 5px solid var(--border-dark);
     background: var(--border-dark);
-    position: absolute;
-    top: 0;
-    left: 0;
-    transition: opacity 0.2s;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+#chess-board {
+    /* editor board visible by default */
 }
 
 #game-board {
+    position: absolute;  /* overlay on top of editor board when active */
+    top: 0;
+    left: 0;
     pointer-events: none;
 }
 
 .hidden {
     opacity: 0;
     pointer-events: none;
-}
-
-.active-board {
-    opacity: 1;
-    pointer-events: all;
 }
 
 .square {
@@ -78,12 +83,12 @@ body {
 
 .sq-light {
     background: var(--sq-light);
-    color: #111;
+    color: #2c1e12;               /* dark text on light squares */
 }
 
 .sq-dark {
     background: var(--sq-dark);
-    color: #eee;
+    color: #f0e6d2;               /* light text on dark squares */
 }
 
 .sq-dead {
@@ -117,19 +122,19 @@ body {
 
 .color-btn {
     padding: 10px;
-    background: #3a3a3a;
-    border: 2px solid #555;
+    background: #6b4f35;
+    border: 2px solid #8b6f55;
     cursor: pointer;
     text-align: center;
     font-size: 0.7rem;
     font-weight: bold;
-    color: white;
+    color: var(--text-light);
     transition: all 0.2s;
 }
 
 .color-btn.active {
     border-color: var(--accent);
-    background: #4a4a4a;
+    background: #8b6f55;
     box-shadow: 0 0 8px var(--accent);
 }
 
@@ -140,22 +145,22 @@ body {
 }
 
 .piece-tool {
-    background: #3a3a3a;
-    border: 1px solid #555;
+    background: #6b4f35;
+    border: 1px solid #8b6f55;
     aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     font-size: 2rem;
-    color: white;
+    color: var(--text-light);
     font-family: 'Segoe UI Symbol', 'DejaVu Sans', 'Apple Symbols', 'Arial Unicode MS', sans-serif;
     transition: all 0.2s;
 }
 
 .piece-tool.active {
     border: 2px solid var(--accent);
-    background: #4a4a4a;
+    background: #8b6f55;
     box-shadow: 0 0 8px var(--accent);
 }
 
@@ -175,16 +180,16 @@ body {
 }
 
 .btn-action:hover {
-    background: #5dade2;
+    background: #d97c1f;
 }
 
 .btn-secondary {
-    background: #4a4a4a;
+    background: #6b4f35;
     color: white;
 }
 
 .btn-secondary:hover {
-    background: #5a5a5a;
+    background: #8b6f55;
 }
 
 .control-group {
@@ -195,9 +200,9 @@ body {
 .control-group input[type="text"] {
     width: 100%;
     padding: 8px;
-    background: #3a3a3a;
-    border: 1px solid #555;
-    color: white;
+    background: #3e2e1f;
+    border: 1px solid #6b4f35;
+    color: var(--text-light);
     border-radius: 4px;
     box-sizing: border-box;
 }
@@ -205,11 +210,11 @@ body {
 .btn-eraser-active, .btn-block-active {
     background: var(--accent) !important;
     color: white !important;
-    border: 2px solid white;
+    border: 2px solid #f0e6d2;
 }
 
 #variant-list {
-    background: #3a3a3a;
+    background: #3e2e1f;
     border-radius: 4px;
     padding: 5px;
     margin-bottom: 10px;
@@ -220,7 +225,7 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 5px;
-    border-bottom: 1px solid #555;
+    border-bottom: 1px solid #6b4f35;
     font-size: 0.9rem;
 }
 
@@ -238,12 +243,12 @@ body {
 }
 
 .variant-item button:hover {
-    color: #5dade2;
+    color: #d97c1f;
 }
 
 #room-info {
     margin-top: 10px;
-    background: #3a3a3a;
+    background: #3e2e1f;
     padding: 8px;
     border-radius: 4px;
     text-align: center;
