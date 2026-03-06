@@ -10,9 +10,8 @@
 </head>
 <body>
 
-    <!-- Left Sidebar (now includes variant list at top) -->
+    <!-- Left Sidebar -->
     <div id="sidebar">
-        <!-- Variant Management moved here -->
         <div class="section-title">My Variants</div>
         <div id="variant-list" style="max-height:150px; overflow-y:auto; margin-bottom:15px;"></div>
         <div class="control-group" style="margin-bottom:15px;">
@@ -30,7 +29,9 @@
 
         <div class="section-title">Pieces</div>
         <div class="piece-grid" id="piece-tools"></div>
-        <button class="btn-action btn-secondary" id="btn-eraser" onclick="selectTool('eraser')" style="margin-top:20px">ERASER</button>
+        <!-- Block tool button -->
+        <button class="btn-action btn-secondary" id="btn-block" onclick="selectTool('block')" style="margin-top:10px;">⬛ BLOCK</button>
+        <button class="btn-action btn-secondary" id="btn-eraser" onclick="selectTool('eraser')" style="margin-top:10px;">ERASER</button>
     </div>
 
     <!-- Main Area -->
