@@ -10,10 +10,20 @@ const firebaseConfig = {
   };
 
 
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const PIECES = { 'K': '♚', 'Q': '♛', 'R': '♜', 'B': '♝', 'N': '♞', 'P': '♟' };
+// Map piece letters to Font Awesome icon classes
+const PIECES = {
+    'K': 'fa-chess-king',
+    'Q': 'fa-chess-queen',
+    'R': 'fa-chess-rook',
+    'B': 'fa-chess-bishop',
+    'N': 'fa-chess-knight',
+    'P': 'fa-chess-pawn'
+};
+
 let state = {
     size: 14,
     selectedPiece: 'P',
@@ -28,7 +38,8 @@ function init() {
         const div = document.createElement('div');
         div.className = `piece-tool ${key === 'P' ? 'active' : ''}`;
         div.id = `tool-${key}`;
-        div.innerHTML = PIECES[key];
+        // Use Font Awesome icon
+        div.innerHTML = `<i class="fas ${PIECES[key]}"></i>`;
         div.onclick = () => selectTool(key);
         container.appendChild(div);
     });
@@ -49,7 +60,8 @@ function renderBoard() {
             if (!dead) {
                 const data = state.boardData[`${x},${y}`];
                 if (data) {
-                    sq.innerHTML = `<span style="color: ${getColor(data.color)}">${PIECES[data.type]}</span>`;
+                    // Render Font Awesome icon with color
+                    sq.innerHTML = `<i class="fas ${PIECES[data.type]}" style="color: ${getColor(data.color)}"></i>`;
                 }
                 sq.onclick = () => paintPiece(x, y);
             }
@@ -76,16 +88,13 @@ function paintPiece(x, y) {
 function selectTool(type) {
     state.selectedPiece = type;
 
-    // Remove active class from all piece tools and eraser button
     document.querySelectorAll('.piece-tool').forEach(t => t.classList.remove('active'));
     const eraserBtn = document.getElementById('btn-eraser');
     if (eraserBtn) eraserBtn.classList.remove('btn-eraser-active');
 
     if (type === 'eraser') {
-        // Highlight eraser button
         if (eraserBtn) eraserBtn.classList.add('btn-eraser-active');
     } else {
-        // Highlight selected piece tool
         const tool = document.getElementById(`tool-${type}`);
         if (tool) tool.classList.add('active');
     }
@@ -108,22 +117,17 @@ function changeSize(val) {
     renderBoard();
 }
 
-// New function: toggle team mode
 function toggleTeamMode() {
     state.teamMode = document.getElementById('team-mode').checked;
     console.log('Team mode:', state.teamMode);
-    // You can later use this for team-based coloring or rules
 }
 
-// New function: clear board
 function clearBoard() {
     state.boardData = {};
     renderBoard();
 }
 
-// --- FIREBASE DEPLOY LOGIC ---
 function saveToFirebase() {
-    // Generate a unique ID for each variant
     const variantRef = db.ref('variants').push();
     variantRef.set({
         grid: state.boardData,
@@ -137,5 +141,4 @@ function saveToFirebase() {
     });
 }
 
-// Initialize the app
 init();
