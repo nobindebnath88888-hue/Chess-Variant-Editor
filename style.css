@@ -52,7 +52,7 @@ body {
 }
 
 #game-board {
-    pointer-events: none; /* will be enabled in play mode */
+    pointer-events: none;
 }
 
 .hidden {
@@ -212,6 +212,7 @@ body {
     background: #3a3a3a;
     border-radius: 4px;
     padding: 5px;
+    margin-bottom: 10px;
 }
 
 .variant-item {
