@@ -9,6 +9,7 @@ const firebaseConfig = {
     measurementId: "G-2Z9P9KZQWM"
   };
 
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
@@ -17,7 +18,8 @@ let state = {
     size: 14,
     selectedPiece: 'P',
     selectedColor: 'white',
-    boardData: {}
+    boardData: {},
+    teamMode: false
 };
 
 function init() {
@@ -57,20 +59,36 @@ function renderBoard() {
 }
 
 function isDeadZone(x, y) {
-    const d = 3; const s = state.size;
+    const d = 3;
+    const s = state.size;
     return (x < d && y < d) || (x < d && y >= s-d) || (x >= s-d && y < d) || (x >= s-d && y >= s-d);
 }
 
 function paintPiece(x, y) {
-    if (state.selectedPiece === 'eraser') delete state.boardData[`${x},${y}`];
-    else state.boardData[`${x},${y}`] = { type: state.selectedPiece, color: state.selectedColor };
+    if (state.selectedPiece === 'eraser') {
+        delete state.boardData[`${x},${y}`];
+    } else {
+        state.boardData[`${x},${y}`] = { type: state.selectedPiece, color: state.selectedColor };
+    }
     renderBoard();
 }
 
 function selectTool(type) {
     state.selectedPiece = type;
+
+    // Remove active class from all piece tools and eraser button
     document.querySelectorAll('.piece-tool').forEach(t => t.classList.remove('active'));
-    if(type !== 'eraser') document.getElementById(`tool-${type}`).classList.add('active');
+    const eraserBtn = document.getElementById('btn-eraser');
+    if (eraserBtn) eraserBtn.classList.remove('btn-eraser-active');
+
+    if (type === 'eraser') {
+        // Highlight eraser button
+        if (eraserBtn) eraserBtn.classList.add('btn-eraser-active');
+    } else {
+        // Highlight selected piece tool
+        const tool = document.getElementById(`tool-${type}`);
+        if (tool) tool.classList.add('active');
+    }
 }
 
 function selectColor(color) {
@@ -80,23 +98,44 @@ function selectColor(color) {
 }
 
 function getColor(c) {
-    return { white: '#fff', silver: '#c0c0c0', black: '#000', gold: '#ffd700' }[c];
+    return { white: '#fff', silver: '#c0c0c0', black: '#222', gold: '#ffd700' }[c];
 }
 
 function changeSize(val) {
     state.size = parseInt(val);
     document.getElementById('dim-label').innerText = `${val} x ${val}`;
-    state.boardData = {}; renderBoard();
+    state.boardData = {};
+    renderBoard();
+}
+
+// New function: toggle team mode
+function toggleTeamMode() {
+    state.teamMode = document.getElementById('team-mode').checked;
+    console.log('Team mode:', state.teamMode);
+    // You can later use this for team-based coloring or rules
+}
+
+// New function: clear board
+function clearBoard() {
+    state.boardData = {};
+    renderBoard();
 }
 
 // --- FIREBASE DEPLOY LOGIC ---
 function saveToFirebase() {
-    const variantID = "test-variant-1"; // You can make this dynamic later
-    db.ref('variants/' + variantID).set({
+    // Generate a unique ID for each variant
+    const variantRef = db.ref('variants').push();
+    variantRef.set({
         grid: state.boardData,
         size: state.size,
+        teamMode: state.teamMode,
         timestamp: Date.now()
-    }).then(() => alert("Variant Deployed to Firebase!"));
+    }).then(() => {
+        alert("Variant deployed! ID: " + variantRef.key);
+    }).catch(error => {
+        alert("Error: " + error.message);
+    });
 }
 
+// Initialize the app
 init();
