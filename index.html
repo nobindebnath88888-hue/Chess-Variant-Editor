@@ -4,14 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>4-Player Variant Platform</title>
-    <!-- Font Awesome 6 (free) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
+    <!-- Left Sidebar (Editor tools) -->
     <div id="sidebar">
         <div class="section-title">Color</div>
         <div class="color-grid">
@@ -26,14 +25,19 @@
         <button class="btn-action btn-secondary" id="btn-eraser" onclick="selectTool('eraser')" style="margin-top:20px">ERASER</button>
     </div>
 
+    <!-- Main Area: shows either editor board or game board -->
     <div id="main-viewport">
         <div id="board-container">
-            <div id="chess-board"></div>
+            <!-- Editor Board -->
+            <div id="chess-board" class="active-board"></div>
+            <!-- Game Board (hidden by default) -->
+            <div id="game-board" class="hidden"></div>
         </div>
     </div>
 
+    <!-- Right Settings Panel -->
     <div id="settings">
-        <div class="section-title">Rules</div>
+        <div class="section-title">Editor</div>
         <div class="control-group">
             <label>Size: <b id="dim-label">14 x 14</b></label>
             <input type="range" min="8" max="18" value="14" step="2" oninput="changeSize(this.value)">
@@ -41,8 +45,30 @@
         <div class="control-group">
             <label><input type="checkbox" id="team-mode" onchange="toggleTeamMode()"> Team Mode</label>
         </div>
-        <button class="btn-action" onclick="saveToFirebase()">DEPLOY VARIANT</button>
-        <button class="btn-action btn-secondary" onclick="clearBoard()">CLEAR ALL</button>
+        <button class="btn-action" onclick="clearBoard()">CLEAR BOARD</button>
+
+        <hr>
+
+        <div class="section-title">Variant Management</div>
+        <div class="control-group">
+            <input type="text" id="variant-name" placeholder="Variant name" value="My Variant">
+        </div>
+        <button class="btn-action" onclick="saveVariant()">💾 SAVE VARIANT</button>
+        <div id="variant-list" style="margin-top:10px; max-height:150px; overflow-y:auto;"></div>
+
+        <hr>
+
+        <div class="section-title">Play Online</div>
+        <button class="btn-action" onclick="createRoom()">🎮 CREATE ROOM</button>
+        <div class="control-group" style="display:flex; gap:5px; margin-top:10px;">
+            <input type="text" id="room-code" placeholder="Enter room code" style="flex:1;">
+            <button class="btn-action" onclick="joinRoom()" style="margin-top:0;">JOIN</button>
+        </div>
+        <div id="room-info" style="font-size:0.8rem; color:#aaa;"></div>
+
+        <hr>
+
+        <button class="btn-action" onclick="saveToFirebase()">DEPLOY VARIANT (old)</button>
     </div>
 
     <script src="script.js"></script>
